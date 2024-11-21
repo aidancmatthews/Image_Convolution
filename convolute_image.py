@@ -1,36 +1,38 @@
 import numpy as np
-import time
 import sys
 from PIL import Image, UnidentifiedImageError
+from scipy.ndimage import convolve
 
-def get_neighbors(im, i, j):
-    return im[max(i-1, 0):min(i+2, im.shape[0]), max(j-1, 0):min(j+2, im.shape[1])]
-
-def calc_new_val(neighbors):
-    num_pixels = neighbors.size // 3
-    new_val = np.floor_divide(neighbors.sum(axis=(0, 1)), num_pixels)
-    return new_val
-
-if len(sys.argv) == 3:
-    try:
-        img = Image.open(sys.argv[1])
-    except (FileNotFoundError, UnidentifiedImageError, ValueError, TypeError):
-        raise Exception("Please enter a valid image! The correct usage for this program is in the form \"python convolute_image.py {image_file_path} {iterations}\"")
-    img_array = np.array(img)
-
-    iterations = int(sys.argv[2])
-
-    if (iterations < 1):
-        raise Exception("Please enter a number greater than 0")
+def process_image(img_array, iterations):
+    kernel = np.ones((3, 3, 1), dtype=np.float32) / 9.0
     
-    for i in range(iterations):
-        neighbors_array = np.zeros_like(img_array)
-        for row in range(img_array.shape[0]):
-            for col in range(img_array.shape[1]):
-                neighbors = get_neighbors(img_array, row, col)
-                neighbors_array[row, col] = calc_new_val(neighbors)
+    for _ in range(iterations):
+        img_array = convolve(img_array, kernel, mode='constant', cval=0)
+    
+    return img_array
 
-        img_array = neighbors_array
+if __name__ == "__main__":
+    if len(sys.argv) == 3:
+        try:
+            img = Image.open(sys.argv[1])
+        except (FileNotFoundError, UnidentifiedImageError, ValueError, TypeError):
+            raise Exception(
+                "Please enter a valid image! The correct usage for this program is:\n"
+                "\"python convolute_image.py {image_file_path} {iterations}\""
+            )
+        
+        img_array = np.array(img, dtype=np.float32)
 
-    new_img = Image.fromarray(np.uint8(img_array))
-    new_img.show()
+        try:
+            iterations = int(sys.argv[2])
+            if iterations < 1:
+                raise ValueError
+        except ValueError:
+            raise Exception("Please enter a number greater than 0 for iterations")
+
+        processed_array = process_image(img_array, iterations)
+        processed_array = np.clip(processed_array, 0, 255).astype(np.uint8)
+
+        # Create and display the processed image
+        new_img = Image.fromarray(processed_array)
+        new_img.show()
